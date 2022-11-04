@@ -13,8 +13,7 @@ namespace WebAPI.Model
         public string EMail { get; set; }
         public string NickName { get; set; }
         public DateTime Since { get; set; }
-        public DateTime ModifyDatetime { get; set; }
-
+        public DateTime ModifyDate { get; set; }
     }
 
     public class LoginData
