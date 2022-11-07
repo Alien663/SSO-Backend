@@ -8,6 +8,7 @@ using WebAPI.Lib;
 using WebAPI.Model;
 using WebAPI.Filter;
 using System;
+using System.Dynamic;
 
 namespace WebAPI.Controllers 
 {
@@ -47,7 +48,14 @@ namespace WebAPI.Controllers
         [AuthorizationFilter]
         public IActionResult AutoLogin()
         {
-            return Ok();
+            try
+            {
+                return Ok();
+            }
+            catch(Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpPost("logout")]
@@ -63,16 +71,8 @@ namespace WebAPI.Controllers
                 p.Add("@refreshtoken", HttpContext.Request.Cookies.Where(x => x.Key == "RefreshToken").FirstOrDefault().Value);
                 db.Connection.Execute(sql, p, commandType: CommandType.StoredProcedure);
             }
-            CookieOptions options = new CookieOptions();
-            options.HttpOnly = true;
-            options.Secure = true;
-            options.SameSite = SameSiteMode.None;
-            options.Expires = DateTimeOffset.Now.AddDays(1);
-            options.Domain = "an990154054";
-            //options.Domain = "localhost";
-            options.Path = "/";
-            Response.Cookies.Delete("Token", options);
-            Response.Cookies.Delete("RefreshToken", options);
+            Response.Cookies.Delete("Token");
+            Response.Cookies.Delete("RefreshToken");
             return Ok();
         }
 
@@ -122,6 +122,7 @@ namespace WebAPI.Controllers
         {
             try
             {
+                int new_mid;
                 using (var db = new AppDb())
                 {
                     string sql = @"xp_createNewUser";
@@ -132,8 +133,19 @@ namespace WebAPI.Controllers
                     p.Add("@nickname", req_data.NickName);
                     p.Add("@mid", DbType.Int32, direction: ParameterDirection.Output);
                     db.Connection.Execute(sql, p, commandType: CommandType.StoredProcedure);
-                    HttpContext.Items.Add("MID", p.Get<object>("mid"));
+                    new_mid = int.Parse(p.Get<object>("mid").ToString());
+                    HttpContext.Items.Add("MID", new_mid);
+
+
+                    sql = @"xp_MemberSendVerify";
+                    p = new DynamicParameters();
+                    p.Add("@mid", new_mid);
+                    db.Connection.Execute(sql, p, commandType: CommandType.StoredProcedure);
                 }
+
+                MemberVerifyModel data = new MemberVerifyModel();
+                // data = ResendVerifyCode();
+
                 // send verify email
                 return Ok();
             }
@@ -143,51 +155,56 @@ namespace WebAPI.Controllers
             }
         }
 
-        [HttpPost("verify/resend")]
+        [HttpGet("verify/send")]
+        [AuthorizationFilter]
         public IActionResult ResendVerifyCode()
         {
             try
             {
                 using (var db = new AppDb())
                 {
-                    string sql = "xp_MemberVerifyResend";
+                    string sql = "xp_MemberSendVerify";
                     var p = new DynamicParameters();
-                    /* parameters need to assign */
-                    db.Connection.Execute(sql, p, commandType: CommandType.StoredProcedure);
+                    int MID = int.Parse(HttpContext.Items["MID"].ToString());
+                    p.Add("@mid", MID);
+
+                    List<MemberVerifyModel> data = new List<MemberVerifyModel>();
+                    var reader = db.Connection.ExecuteReader(sql, p, commandType: CommandType.StoredProcedure);
+                    //reader.Read();
+                    data = SqlMapper.Parse<MemberVerifyModel>(reader).ToList();
+                    reader.Close();
+                    string result = "member/verify/" + data[0].Token.ToString() + "/" + data[0].UUID.ToString();
+                    return Ok(new { result });
                 }
-                return Ok();
             }
-            catch
+            catch(Exception ex)
             {
-                return BadRequest("This API haven't done yet");
+                throw ex;
             }
             
         }
 
         [HttpPost("verify")]
-        public IActionResult VerifyNewAccount()
+        public IActionResult VerifyNewAccount([FromBody] MemberVerifyModel payload)
         {
-            using (var db = new AppDb())
+            try
             {
-                string sql = "xp_MemberVerify";
-                var p = new DynamicParameters();
-                /* parameters need to assign */
-                db.Connection.Execute(sql, p, commandType: CommandType.StoredProcedure);
-            }
-            return Ok();
-        }
+                using (var db = new AppDb())
+                {
+                    string sql = "xp_MemberVerify";
+                    var p = new DynamicParameters();
 
-        [HttpPost("password/forget")]
-        public IActionResult ForgetPassword()
-        {
-            using (var db = new AppDb())
-            {
-                string sql = "xp_MemberPasswordForget";
-                var p = new DynamicParameters();
-                /* parameters need to assign */
-                db.Connection.Execute(sql, p, commandType: CommandType.StoredProcedure);
+                    p.Add("@token", payload.Token);
+                    p.Add("@guid", payload.UUID);
+
+                    db.Connection.Execute(sql, p, commandType: CommandType.StoredProcedure);
+                }
+                return Ok();
             }
-            return Ok();
+            catch(Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpPost("password/renew")]
@@ -207,12 +224,87 @@ namespace WebAPI.Controllers
                 }
                 return Ok();
             }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("password/renew/verify/{token}/{uuid}")]
+        public IActionResult VerifyRenewPassword(string token, string uuid)
+        {
+            try
+            {
+                using (var db = new AppDb())
+                {
+                    string sql = @"select 1 as Flag from vd_ForgePasswordSession where UUID = @uuid and Token = @token and Expired >= getdate()";
+                    var p = new DynamicParameters();
+
+                    var result = db.Connection.QuerySingleOrDefault(sql, new { token, uuid });
+                    
+                    if(result == null)
+                    {
+                        return BadRequest("Invalidate Request");
+                    }
+                    else
+                    {
+                        return Ok();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("password/renew/forget")]
+        public IActionResult RenewForgetPassword([FromBody] ResetPaswwrod2 payload)
+        {
+            try
+            {
+                using (var db = new AppDb())
+                {
+                    string sql = @"xp_MemberRenewForgetPassword";
+                    var p = new DynamicParameters();
+                    p.Add("@token", payload.Token);
+                    p.Add("@uuid", payload.UUID);
+                    p.Add("@newpassword", payload.NewPassword);
+                    db.Connection.Execute(sql, p, commandType: CommandType.StoredProcedure);
+                    return Ok();
+                }
+            }
+            catch(Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            
+        }
+
+        [HttpPost("password/forget")]
+        public IActionResult VerifyForgetPassword([FromBody] MemberVerifyModel payload)
+        {
+            try
+            {
+                using (var db = new AppDb())
+                {
+                    string sql = "xp_PasswordSendVerify";
+                    var p = new DynamicParameters();
+                    p.Add("@email", payload.EMail);
+                    p.Add("@account", payload.Account);
+                    var reader = db.Connection.ExecuteReader(sql, p, commandType: CommandType.StoredProcedure);
+                    List<MemberVerifyModel> data = SqlMapper.Parse<MemberVerifyModel>(reader).ToList();
+                    string result = "member/resetpassword/" + data[0].Token.ToString() + "/" + data[0].UUID.ToString();
+                    return Ok(new { result });
+                }
+            }
             catch(Exception ex)
             {
                 return BadRequest(ex.Message);
             }
         }
-       
+
         [HttpGet("dupicate/account/{acc}")]
         public IActionResult DuplicateAccount(string acc)
         {
@@ -260,11 +352,10 @@ namespace WebAPI.Controllers
             options.Secure = true;
             options.SameSite = SameSiteMode.None;
             options.Expires = DateTimeOffset.Now.AddDays(1);
-            options.Domain = "an990154054";
-            //options.Domain = "localhost";
             options.Path = "/";
 
             return options;
         }
+
     }
 }

@@ -29,4 +29,21 @@ namespace WebAPI.Model
         public string OldPassword { get; set; }
         public string NewPassword { get; set; }
     }
+    public class ResetPaswwrod2
+    {
+        public Guid Token { get; set; }
+        public Guid UUID { get; set; }
+        public string NewPassword { get; set; }
+    }
+
+    public class MemberVerifyModel
+    {
+        public int MID { get; set; }
+        public Guid UUID { get; set; }
+        public string Account { get; set; }
+        public string EMail { get; set; }
+        public Boolean Verify { get; set; }
+        public int SSID { get; set; }
+        public Guid Token { get; set; }
+    }
 }
