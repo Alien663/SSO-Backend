@@ -345,6 +345,16 @@ namespace WebAPI.Controllers
             }
         }
 
+        [HttpPost("grant")]
+        public IActionResult UpdateGrant()
+        {
+            /* <summary>
+             *  user's page to maintain grant
+             * </summary>
+            */
+            return Ok();
+        }
+
         private CookieOptions createCookie()
         {
             CookieOptions options = new CookieOptions();

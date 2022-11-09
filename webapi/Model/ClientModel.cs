@@ -13,4 +13,20 @@ namespace WebAPI.Model
         public string scope { get; set; }
         public string State { get; set; }
     }
+
+    public class ClientMemberModel
+    {
+        public string APIKEY { get; set; }
+        public string Account { get; set; }
+        public string Password { get; set; }
+
+    }
+
+    public class ClientMemberLoginResultModel
+    {
+        public string Domain { get; set; }
+        public bool isGrant { get; set; }
+        public Guid AccessToken { get; set; }
+        public Guid RefreshToken { get; set; }
+    }
 }
