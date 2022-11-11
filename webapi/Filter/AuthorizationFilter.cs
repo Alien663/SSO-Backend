@@ -20,7 +20,7 @@ namespace WebAPI.Filter
         {
             string _token;
             string _refresh;
-            bool isDev = true; // this is for quickly develop, need to remote before pro
+            bool isDev = true; // this is for quickly develop, need to remote before publish
             if (isDev)
             {
                 context.HttpContext.Items.Add("MID", 1);
@@ -45,7 +45,8 @@ namespace WebAPI.Filter
                         p.Add("@mid", DbType.Int32, direction: ParameterDirection.Output);
                         db.Connection.Execute(sql, p, commandType: CommandType.StoredProcedure);
                         int MID = int.Parse(p.Get<object>("mid").ToString());
-                        if(MID == -1)
+                        #region Refresh Token Flow
+                        if (MID == -1)
                         {
                             sql = @"xp_refreshToken";
                             p = new DynamicParameters();
@@ -56,18 +57,16 @@ namespace WebAPI.Filter
                             p.Add("@mid", DbType.Int32, direction: ParameterDirection.Output);
                             db.Connection.Execute(sql, p, commandType: CommandType.StoredProcedure);
                             context.HttpContext.Items.Add("MID", p.Get<object>("mid"));
+                            CookieOptions options = new CookieOptions();
+                            options.HttpOnly = true;
+                            options.Secure = true;
+                            options.Expires = DateTimeOffset.Now.AddDays(1);
+                            context.HttpContext.Response.Cookies.Append("Token", new_token, options);
+                            context.HttpContext.Response.Cookies.Append("RefreshToken", new_refresh, options);
                         }
-                        else
-                        {
-                            context.HttpContext.Items.Add("MID", p.Get<object>("mid"));
-                        }
+                        #endregion
+                        context.HttpContext.Items.Add("MID", p.Get<object>("mid"));
                     }
-                    CookieOptions options = new CookieOptions();
-                    options.HttpOnly = true;
-                    options.Secure = true;
-                    options.Expires = DateTimeOffset.Now.AddDays(1);
-                    context.HttpContext.Response.Cookies.Append("Token", new_token, options);
-                    context.HttpContext.Response.Cookies.Append("RefreshToken", new_refresh, options);
                 }
                 catch (Exception ex)
                 {
