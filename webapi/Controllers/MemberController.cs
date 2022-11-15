@@ -355,6 +355,27 @@ namespace WebAPI.Controllers
             return Ok();
         }
 
+        [HttpPost("grant/confirm")]
+        [AuthorizationFilter]
+        public IActionResult ConfirmGrant()
+        {
+            try
+            {
+                int mid = int.Parse(HttpContext.Items["MID"].ToString());
+                using (var db = new AppDb())
+                {
+                    var sql = @"";
+                    db.Connection.Execute(sql, new { mid });
+                }
+                return Ok();
+            }
+            catch(Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            
+        }
+
         private CookieOptions createCookie()
         {
             CookieOptions options = new CookieOptions();

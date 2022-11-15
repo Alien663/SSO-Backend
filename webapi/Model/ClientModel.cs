@@ -7,10 +7,13 @@ namespace WebAPI.Model
 {
     public class ClientModel
     {
-        public Guid APIKEY { get; set; }
+        public int AID { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
         public string URL { get; set; }
         public string RedirectURL { get; set; }
-        public string scope { get; set; }
+        public Guid APIKEY { get; set; }
+        public string Scope { get; set; }
         public string State { get; set; }
     }
 

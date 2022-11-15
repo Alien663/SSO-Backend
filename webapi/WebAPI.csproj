@@ -3,6 +3,9 @@
     <TargetFramework>net6.0</TargetFramework>
     <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Lib\MyCookie.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <!--<PackageReference Include="ApiExcetionMiddleware" Version="1.0.3" />-->

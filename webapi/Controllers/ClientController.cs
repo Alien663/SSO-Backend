@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Data;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -42,50 +43,23 @@ namespace WebAPI.Controllers
         [HttpPost("verify")]
         public IActionResult verify([FromBody] ClientModel payload)
         {
-            string strSql = @"select 1 as Flag from APP where APIKEY = @APIKEY";
+            string strSql = @"declare @aid int = (select AID from APP where APIKEY = @APIKEY)
+                if @aid is not null
+                    select [Name], [URL], RedirectURL from APP where AID = @aid";
             using(var db = new AppDb())
             {
-                var flag = db.Connection.QuerySingleOrDefault(strSql, new { payload.APIKEY });
-                if(flag is null)
+                ClientModel data = db.Connection.QueryFirstOrDefault<ClientModel>(strSql, new { payload.APIKEY });
+                if(data is null)
                 {
                     return BadRequest("Client Verify Fail");
                 }
                 else
                 {
-                    return Ok();
+                    return Ok(data);
                 }
             }
         }
 
-        [HttpPost("login")]
-        public IActionResult MemberLogin([FromBody] ClientMemberModel payload)
-        {
-            try
-            {
-                using(var db = new AppDb())
-                {
-                    string sql = @"select 1 Flag from APP where APIKEY = @APIKEY";
-                    var Flag = db.Connection.QuerySingleOrDefault(sql, new { payload.APIKEY });
-                    if(Flag is null)
-                    {
-                        throw new Exception("Verify Fail");
-                    }
-                    else
-                    {
-                        sql = @"";
-                    }
-
-
-
-
-                    return Ok();
-                }
-            }
-            catch(Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
 
         [HttpPost("grant")]
         public IActionResult UpdateGrant()
